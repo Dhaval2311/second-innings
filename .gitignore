@@ -1,0 +1,39 @@
+# ── Personal data — NEVER commit these ──
+config.yaml
+second_innings.db
+*.db
+user_answers.yaml
+pending_questions.yaml
+
+# ── Generated outputs ──
+outputs/
+*.csv
+*.md
+
+# ── Python ──
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# ── macOS ──
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# ── IDE ──
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ── Playwright ──
+playwright-report/
+test-results/

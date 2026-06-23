@@ -1,0 +1,147 @@
+# Example Configuration for Second Innings
+# Copy this file to config.yaml and edit with your details.
+# DO NOT commit config.yaml to version control.
+
+# ── 1. Profile ────────────────────────────────────────────────────────
+profile:
+  full_name: "John Doe"
+  email: "john.doe@example.com"
+  phone: "+91-9876543210"
+  resume_path: "~/Documents/Resume.pdf"
+
+  # Core fields used for scoring and rule-based answers
+  years_experience: 5
+  current_ctc_lpa: "15"
+  expected_ctc_lpa: "25"
+  notice_period_days: "30"
+  current_location: "Bangalore"
+
+  # Standard boolean answers
+  willing_to_relocate: "Yes"
+  work_authorization: "Yes"
+  visa_sponsorship_required: "No"
+  comfortable_onsite: "Yes"
+  comfortable_remote: "Yes"
+  earliest_start: "1 Month"
+  english_proficiency: "Yes"
+
+  # Used when a question asks for years of experience but doesn't mention a specific skill
+  default_screening_answer: "5"
+
+  # Specific skill experience (used for "How many years of experience do you have with X?")
+  skill_years:
+    python: 5
+    sql: 5
+    spark: 3
+    pyspark: 3
+    aws: 2
+    airflow: 2
+
+  # Optional links
+  linkedin_url: "https://linkedin.com/in/johndoe"
+  portfolio_url: "https://github.com/johndoe"
+
+
+# ── 2. AI Generation ──────────────────────────────────────────────────
+ai:
+  # provider options: gemini_free | groq | none
+  # gemini_free: Get key at https://aistudio.google.com/app/apikey (No billing needed)
+  # groq: Get key at https://console.groq.com
+  provider: "none"
+  api_key: ""
+
+
+# ── 3. Browser Setup ──────────────────────────────────────────────────
+browser:
+  # Port where Brave/Chrome remote debugging is running
+  cdp_url: "http://localhost:9222"
+  mode: "cdp"
+  reuse_existing_tabs: true
+  never_open_new_tabs: true
+
+
+# ── 4. Scraper ────────────────────────────────────────────────────────
+scraper:
+  # Only scrape jobs posted within this many days
+  fresh_only_days: 7
+  max_jobs_per_search: 20
+  enrich_details: true
+  enrich_limit_per_search: 10
+
+  # Browser searches to run
+  searches:
+    naukri:
+      - url: "https://www.naukri.com/data-engineer-sql-python-spark-jobs"
+        label: "data-engineer"
+    linkedin:
+      - url: "https://www.linkedin.com/jobs/search/?keywords=data%20engineer&location=India&f_TPR=r604800&f_AL=true"
+        label: "data-engineer"
+    hirist:
+      - url: "https://www.hirist.tech/data-engineering-jobs?minexp=3&maxexp=8"
+        label: "data-engineering"
+    indeed:
+      - url: "https://in.indeed.com/jobs?q=data+engineer&l=India&fromage=7"
+        label: "data-engineer"
+    # Optional sources: wellfound, cutshort
+
+
+# ── 5. Scoring Logic ──────────────────────────────────────────────────
+scoring:
+  # These keywords give +5 points each if found in Role, Skills, or JD
+  primary_keywords:
+    - sql
+    - python
+    - pyspark
+    - spark
+    - etl
+    - data engineer
+    - aws
+    - airflow
+    - bigquery
+    - snowflake
+
+  # These keywords give +2 points each
+  bonus_keywords:
+    - databricks
+    - kafka
+    - streaming
+    - dbt
+
+  # 100-point scale thresholds
+  priority_threshold: 75
+  shortlist_threshold: 45
+
+
+# ── 6. Applier ────────────────────────────────────────────────────────
+applier:
+  # SET THIS TO FALSE to actually submit applications!
+  dry_run: true
+
+  # Seconds to wait between major actions
+  delay_seconds: 4
+
+  # Only apply to jobs with these statuses
+  statuses:
+    - "priority"
+    - "shortlist"
+
+  # Which sources to run the auto-applier on
+  sources:
+    - "linkedin"
+    - "naukri"
+    - "hirist"
+    - "indeed"
+    - "wellfound"
+    - "cutshort"
+
+  max_per_run: 20
+  skip_already_applied: true
+  pause_on_captcha: true
+
+
+# ── 7. Output ─────────────────────────────────────────────────────────
+output:
+  dir: "outputs"
+  # Legacy CSV/MD files (DB is now the primary storage)
+  tracker_file: "job_tracker.csv"
+  shortlist_file: "job_shortlist.md"

@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Second Innings — Dashboard</title>
+<meta name="description" content="Your personal job automation dashboard — track scrapes, applications, and generate content."/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<link rel="stylesheet" href="/static/styles.css"/>
+</head>
+<body>
+
+<!-- ═══════════════════════════ HEADER ═══════════════════════════ -->
+<header class="header">
+  <div class="header-brand">
+    <svg class="brand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+    </svg>
+    <span class="brand-name">Second Innings <span class="brand-accent">OS</span></span>
+  </div>
+
+  <nav class="header-nav">
+    <button class="nav-btn active" data-tab="overview" onclick="switchTab('overview')">Overview</button>
+    <button class="nav-btn" data-tab="tracker"  onclick="switchTab('tracker')">Tracker</button>
+    <button class="nav-btn" data-tab="company"  onclick="switchTab('company')">Company Queue</button>
+    <button class="nav-btn" data-tab="content"  onclick="switchTab('content')">Content</button>
+    <button class="nav-btn" data-tab="history"  onclick="switchTab('history')">History</button>
+    <button class="nav-btn" data-tab="settings" onclick="switchTab('settings')">⚙ Settings</button>
+  </nav>
+
+  <div class="header-actions">
+    <!-- Notification bell -->
+    <button class="bell-btn" onclick="switchTab('pending')" title="Pending answers" id="bell-btn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+        <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+      </svg>
+      <span class="bell-badge hidden" id="bell-badge">0</span>
+    </button>
+
+    <button class="btn-primary" id="scrape-btn" onclick="triggerScrape()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+        <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+      </svg>
+      Scrape
+    </button>
+    <button class="btn-secondary" id="apply-btn" onclick="triggerApply()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+      </svg>
+      Apply
+    </button>
+  </div>
+</header>
+
+<!-- ═══════════════════════════ MAIN ═══════════════════════════ -->
+<main class="main">
+
+  <!-- ─── OVERVIEW TAB ─── -->
+  <section id="tab-overview" class="tab-content active">
+    <h1 class="page-title">Pipeline Overview</h1>
+
+    <!-- KPI Cards -->
+    <div class="kpi-grid" id="kpi-grid">
+      <div class="kpi-card" id="kpi-scraped">
+        <div class="kpi-icon kpi-blue">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        </div>
+        <div class="kpi-info">
+          <span class="kpi-value" id="v-scraped">—</span>
+          <span class="kpi-label">Jobs Scraped</span>
+        </div>
+      </div>
+      <div class="kpi-card" id="kpi-easy">
+        <div class="kpi-icon kpi-green">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <div class="kpi-info">
+          <span class="kpi-value" id="v-easy">—</span>
+          <span class="kpi-label">Easy Applied</span>
+        </div>
+      </div>
+      <div class="kpi-card" id="kpi-company">
+        <div class="kpi-icon kpi-amber">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+        </div>
+        <div class="kpi-info">
+          <span class="kpi-value" id="v-company">—</span>
+          <span class="kpi-label">Company Queue</span>
+        </div>
+      </div>
+      <div class="kpi-card" id="kpi-total">
+        <div class="kpi-icon kpi-purple">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        </div>
+        <div class="kpi-info">
+          <span class="kpi-value" id="v-total-applied">—</span>
+          <span class="kpi-label">Total Applied</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Charts row -->
+    <div class="charts-row">
+      <div class="glass-card chart-card">
+        <h3 class="card-title">By Source</h3>
+        <canvas id="source-chart" height="220"></canvas>
+      </div>
+      <div class="glass-card chart-card">
+        <h3 class="card-title">Apply Type Split</h3>
+        <canvas id="type-chart" height="220"></canvas>
+      </div>
+    </div>
+
+    <!-- Source breakdown table -->
+    <div class="glass-card">
+      <h3 class="card-title">Source Breakdown</h3>
+      <div class="table-wrap">
+        <table class="data-table" id="source-table">
+          <thead>
+            <tr>
+              <th>Source</th><th>Scraped</th><th>Easy Apply</th>
+              <th>Company Site</th><th>Applied</th><th>Priority</th>
+            </tr>
+          </thead>
+          <tbody id="source-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── TRACKER TAB ─── -->
+  <section id="tab-tracker" class="tab-content">
+    <div class="tab-header">
+      <h1 class="page-title">Job Tracker</h1>
+      <div class="filter-row">
+        <select class="filter-select" id="filter-status" onchange="loadJobs()">
+          <option value="">All Statuses</option>
+          <option value="priority">Priority</option>
+          <option value="shortlist">Shortlist</option>
+          <option value="review">Review</option>
+          <option value="applied">Applied</option>
+          <option value="needs_human">Needs Human</option>
+          <option value="failed">Failed</option>
+        </select>
+        <select class="filter-select" id="filter-type" onchange="loadJobs()">
+          <option value="">All Types</option>
+          <option value="easy_apply">Easy Apply</option>
+          <option value="company_site">Company Site</option>
+        </select>
+        <select class="filter-select" id="filter-source" onchange="loadJobs()">
+          <option value="">All Sources</option>
+          <option value="LinkedIn">LinkedIn</option>
+          <option value="Hirist">Hirist</option>
+          <option value="Naukri">Naukri</option>
+          <option value="Indeed">Indeed</option>
+          <option value="Wellfound">Wellfound</option>
+          <option value="Cutshort">Cutshort</option>
+        </select>
+      </div>
+    </div>
+    <div class="glass-card">
+      <div class="table-wrap">
+        <table class="data-table" id="jobs-table">
+          <thead>
+            <tr>
+              <th>Score</th><th>Company</th><th>Role</th><th>Source</th>
+              <th>Type</th><th>Status</th><th>Location</th><th>Posted</th><th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="jobs-tbody"></tbody>
+        </table>
+      </div>
+      <div class="pagination" id="pagination"></div>
+    </div>
+  </section>
+
+  <!-- ─── COMPANY QUEUE TAB ─── -->
+  <section id="tab-company" class="tab-content">
+    <div class="tab-header">
+      <h1 class="page-title">Company Site Queue</h1>
+      <p class="tab-desc">These jobs require manual application. Click "Mark Applied" after you apply.</p>
+    </div>
+    <div class="glass-card">
+      <div class="table-wrap">
+        <table class="data-table" id="company-table">
+          <thead>
+            <tr>
+              <th>Score</th><th>Company</th><th>Role</th><th>Source</th>
+              <th>Location</th><th>Status</th><th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="company-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── PENDING ANSWERS TAB ─── -->
+  <section id="tab-pending" class="tab-content">
+    <div class="tab-header">
+      <h1 class="page-title">🔔 Awaiting Your Answers</h1>
+      <p class="tab-desc">The apply bot couldn't answer these screening questions. Answer them here to unblock those applications.</p>
+    </div>
+    <div id="pending-list" class="pending-list"></div>
+  </section>
+
+  <!-- ─── CONTENT TAB ─── -->
+  <section id="tab-content" class="tab-content">
+    <h1 class="page-title">Content Generator</h1>
+    <div class="content-grid">
+      <!-- Generator panel -->
+      <div class="glass-card content-form-card">
+        <h3 class="card-title">Generate</h3>
+        <div class="form-group">
+          <label class="form-label">Company</label>
+          <input type="text" id="cg-company" class="form-input" placeholder="e.g. Stripe"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Role</label>
+          <input type="text" id="cg-role" class="form-input" placeholder="e.g. Senior Data Engineer"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Hiring Manager (optional)</label>
+          <input type="text" id="cg-manager" class="form-input" placeholder="e.g. Jane Smith"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">JD snippet (optional — improves quality)</label>
+          <textarea id="cg-jd" class="form-textarea" rows="3" placeholder="Paste a few lines of the job description…"></textarea>
+        </div>
+        <div class="btn-group">
+          <button class="btn-primary full-width" onclick="generateContent('cover-letter')">📄 Cover Letter</button>
+          <button class="btn-secondary full-width" onclick="generateContent('cold-email')">✉️ Cold Email</button>
+          <button class="btn-secondary full-width" onclick="generateContent('linkedin-dm')">💬 LinkedIn DM</button>
+        </div>
+      </div>
+
+      <!-- Output panel -->
+      <div class="glass-card content-output-card">
+        <div class="output-header">
+          <h3 class="card-title" id="output-title">Output</h3>
+          <button class="copy-btn" onclick="copyOutput()" id="copy-btn" style="display:none">Copy</button>
+        </div>
+        <div id="content-output" class="content-output">
+          <p class="output-placeholder">Select a content type and click Generate →</p>
+        </div>
+        <div id="email-subject" class="email-subject hidden"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── HISTORY TAB ─── -->
+  <section id="tab-history" class="tab-content">
+    <h1 class="page-title">Scrape History</h1>
+    <div class="glass-card">
+      <div class="table-wrap">
+        <table class="data-table" id="history-table">
+          <thead>
+            <tr>
+              <th>Time</th><th>Source</th><th>Search Label</th>
+              <th>Found</th><th>New</th><th>Duplicate</th><th>Duration</th>
+            </tr>
+          </thead>
+          <tbody id="history-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── SETTINGS TAB ─── -->
+  <section id="tab-settings" class="tab-content">
+    <h1 class="page-title">⚙ Settings</h1>
+    <p class="tab-desc" style="margin-bottom:24px">Changes are saved to <code>config.yaml</code> and applied instantly — no restart needed.</p>
+
+    <!-- Profile -->
+    <div class="glass-card" style="margin-bottom:20px">
+      <h3 class="card-title">👤 Profile</h3>
+      <div class="settings-grid">
+        <div class="form-group"><label class="form-label">Full Name</label><input class="form-input" id="s-full_name"/></div>
+        <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="s-email"/></div>
+        <div class="form-group"><label class="form-label">Phone</label><input class="form-input" id="s-phone"/></div>
+        <div class="form-group"><label class="form-label">Current CTC (LPA)</label><input class="form-input" id="s-current_ctc_lpa"/></div>
+        <div class="form-group"><label class="form-label">Expected CTC (LPA)</label><input class="form-input" id="s-expected_ctc_lpa"/></div>
+        <div class="form-group"><label class="form-label">Notice Period (days)</label><input class="form-input" id="s-notice_period_days"/></div>
+        <div class="form-group"><label class="form-label">Years Experience</label><input class="form-input" type="number" id="s-years_experience"/></div>
+        <div class="form-group"><label class="form-label">Current Location</label><input class="form-input" id="s-current_location"/></div>
+        <div class="form-group"><label class="form-label">Willing to Relocate</label>
+          <select class="filter-select" id="s-willing_to_relocate" style="width:100%"><option>Yes</option><option>No</option></select></div>
+        <div class="form-group"><label class="form-label">Work Authorization</label><input class="form-input" id="s-work_authorization"/></div>
+        <div class="form-group"><label class="form-label">Visa Sponsorship Required</label>
+          <select class="filter-select" id="s-visa_sponsorship_required" style="width:100%"><option>No</option><option>Yes</option></select></div>
+        <div class="form-group"><label class="form-label">Comfortable Onsite</label>
+          <select class="filter-select" id="s-comfortable_onsite" style="width:100%"><option>Yes</option><option>No</option></select></div>
+        <div class="form-group"><label class="form-label">Comfortable Remote</label>
+          <select class="filter-select" id="s-comfortable_remote" style="width:100%"><option>Yes</option><option>No</option></select></div>
+        <div class="form-group"><label class="form-label">Earliest Start</label><input class="form-input" id="s-earliest_start"/></div>
+        <div class="form-group"><label class="form-label">Resume Path</label><input class="form-input" id="s-resume_path"/></div>
+        <div class="form-group" style="grid-column: 1 / -1">
+          <label class="form-label">📍 Preferred Job Locations <small style="color:var(--text-3);font-weight:400">(comma-separated — used for scoring bonus)</small></label>
+          <input class="form-input" id="s-preferred_locations" placeholder="e.g. Mumbai, Bangalore, Remote, Hyderabad"/>
+        </div>
+      </div>
+      <div style="margin-top:16px">
+        <button class="btn-primary" onclick="saveSettings('profile')">💾 Save Profile</button>
+      </div>
+    </div>
+
+    <!-- AI -->
+    <div class="glass-card" style="margin-bottom:20px">
+      <h3 class="card-title">🤖 AI Configuration</h3>
+      <div class="settings-grid">
+        <div class="form-group"><label class="form-label">Provider</label>
+          <select class="filter-select" id="s-ai-provider" style="width:100%">
+            <option value="gemini_free">Gemini Free</option>
+            <option value="gemini">Gemini Pro</option>
+            <option value="openai">OpenAI</option>
+            <option value="disabled">Disabled</option>
+          </select>
+        </div>
+        <div class="form-group"><label class="form-label">API Key</label><input class="form-input" id="s-ai-api_key" type="password" autocomplete="off"/></div>
+      </div>
+      <div style="margin-top:16px">
+        <button class="btn-primary" onclick="saveSettings('ai')">💾 Save AI Config</button>
+      </div>
+    </div>
+
+    <!-- Applier -->
+    <div class="glass-card" style="margin-bottom:20px">
+      <h3 class="card-title">🚀 Applier</h3>
+      <div class="settings-grid">
+        <div class="form-group"><label class="form-label">Max Per Run</label><input class="form-input" type="number" id="s-applier-max_per_run"/></div>
+        <div class="form-group"><label class="form-label">Delay Between Jobs (s)</label><input class="form-input" type="number" id="s-applier-delay_seconds"/></div>
+        <div class="form-group"><label class="form-label">Dry Run</label>
+          <select class="filter-select" id="s-applier-dry_run" style="width:100%"><option value="false">No (live)</option><option value="true">Yes (test)</option></select></div>
+        <div class="form-group"><label class="form-label">Pause on Unknown Form</label>
+          <select class="filter-select" id="s-applier-pause_on_unknown_form" style="width:100%"><option value="false">No</option><option value="true">Yes</option></select></div>
+        <div class="form-group">
+          <label class="form-label">Unknown Question Wait <small style="color:var(--text-3);font-weight:400">(seconds — how long to hold the form open waiting for your answer)</small></label>
+          <input class="form-input" type="number" id="s-applier-unknown_question_wait_seconds" min="60" max="3600" placeholder="600"/>
+        </div>
+      </div>
+      <div class="form-group" style="margin-top:16px">
+        <label class="form-label">Apply From These Sites</label>
+        <div class="site-checks" id="applier-sites"></div>
+      </div>
+      <div style="margin-top:16px">
+        <button class="btn-primary" onclick="saveSettings('applier')">💾 Save Applier</button>
+      </div>
+    </div>
+
+    <!-- Scraper -->
+    <div class="glass-card" style="margin-bottom:20px">
+      <h3 class="card-title">🔍 Scraper</h3>
+      <div class="settings-grid">
+        <div class="form-group"><label class="form-label">Max Jobs Per Search</label><input class="form-input" type="number" id="s-scraper-max_jobs_per_search"/></div>
+        <div class="form-group"><label class="form-label">Fresh Only (days)</label><input class="form-input" type="number" id="s-scraper-fresh_only_days"/></div>
+        <div class="form-group"><label class="form-label">Enrich Details</label>
+          <select class="filter-select" id="s-scraper-enrich_details" style="width:100%"><option value="true">Yes</option><option value="false">No</option></select></div>
+        <div class="form-group"><label class="form-label">Enrich Limit Per Search</label><input class="form-input" type="number" id="s-scraper-enrich_limit_per_search"/></div>
+      </div>
+      <div class="form-group" style="margin-top:16px">
+        <label class="form-label">Scrape From These Sites</label>
+        <div class="site-checks" id="scraper-sites"></div>
+      </div>
+      <div style="margin-top:16px">
+        <button class="btn-primary" onclick="saveSettings('scraper')">💾 Save Scraper</button>
+      </div>
+    </div>
+
+    <!-- Scoring -->
+    <div class="glass-card">
+      <h3 class="card-title">🎯 Scoring Thresholds</h3>
+      <div class="settings-grid">
+        <div class="form-group"><label class="form-label">Priority Threshold</label><input class="form-input" type="number" id="s-scoring-priority_threshold"/></div>
+        <div class="form-group"><label class="form-label">Shortlist Threshold</label><input class="form-input" type="number" id="s-scoring-shortlist_threshold"/></div>
+      </div>
+      <div style="margin-top:16px">
+        <button class="btn-primary" onclick="saveSettings('scoring')">💾 Save Scoring</button>
+      </div>
+    </div>
+
+  </section>
+
+</main>
+
+<!-- Toast notifications -->
+<div id="toast-container"></div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

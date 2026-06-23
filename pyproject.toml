@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "second-innings"
+version = "2.0.0"
+description = "Free, local job search automation — scrape, score, apply, and generate content"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+keywords = ["job", "automation", "playwright", "scraper", "career"]
+dependencies = [
+    "playwright>=1.40.0",
+    "pyyaml>=6.0.1",
+    "rich>=13.7.0",
+    "pypdf>=4.0.0",
+    "fastapi>=0.110.0",
+    "uvicorn[standard]>=0.27.0",
+    "httpx>=0.27.0",
+    "python-multipart>=0.0.9",
+]
+
+[project.optional-dependencies]
+gemini = ["google-generativeai>=0.5.0"]
+groq   = ["groq>=0.5.0"]
+all    = ["google-generativeai>=0.5.0", "groq>=0.5.0"]
+
+[project.scripts]
+second-innings = "job_automation.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/your-username/second-innings"
+Issues   = "https://github.com/your-username/second-innings/issues"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["job_automation*"]
