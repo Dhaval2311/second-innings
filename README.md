@@ -231,10 +231,5 @@ No terminal blocking. The bot moves to the next job and comes back.
 
 ---
 
-## License
-
-MIT — use freely, fork freely.
-
----
 
 *Built with Playwright (browser automation), FastAPI (dashboard), SQLite (data), and love for the job search grind.*
