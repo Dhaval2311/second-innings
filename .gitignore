@@ -8,7 +8,7 @@ pending_questions.yaml
 # ── Generated outputs ──
 outputs/
 *.csv
-*.md
+outputs/*.md
 
 # ── Python ──
 .venv/
