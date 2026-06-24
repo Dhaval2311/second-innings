@@ -235,8 +235,38 @@ body {
 .tbl-btn:hover { color: var(--text); border-color: rgba(255,255,255,0.2); }
 .tbl-btn-green { border-color: rgba(34,197,94,0.3); color: #4ade80; }
 .tbl-btn-green:hover { background: rgba(34,197,94,0.1); }
+.tbl-btn-ghost { border-color: rgba(139,92,246,0.3); color: #a78bfa; }
+.tbl-btn-ghost:hover { background: rgba(139,92,246,0.1); }
 .link-cell a { color: var(--accent-h); text-decoration: none; }
 .link-cell a:hover { text-decoration: underline; }
+.ext-link { color: var(--accent-h); text-decoration: none; font-size: 12px; }
+.ext-link:hover { text-decoration: underline; }
+.ext-link.dim { color: var(--text-3); }
+.contact-email {
+  font-size: 12px; color: #a78bfa; cursor: pointer;
+  border-bottom: 1px dashed rgba(167,139,250,0.4);
+  white-space: nowrap;
+}
+.contact-email:hover { color: #c4b5fd; }
+.email-form { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
+.email-mini-input {
+  background: var(--surface-h); border: 1px solid var(--border);
+  color: var(--text); border-radius: 6px; padding: 3px 7px;
+  font-size: 12px; font-family: inherit; width: 100px;
+}
+.email-mini-input:focus { outline: none; border-color: rgba(167,139,250,0.5); }
+.email-results { display: flex; flex-direction: column; gap: 3px; margin-top: 4px; }
+.email-candidate { display: block; }
+.pill-verified { font-size: 10px; background: rgba(34,197,94,0.15); color: #4ade80; padding: 1px 5px; border-radius: 4px; margin-bottom: 4px; display: inline-block; }
+.pill-pattern  { font-size: 10px; background: rgba(167,139,250,0.12); color: #a78bfa; padding: 1px 5px; border-radius: 4px; margin-bottom: 4px; display: inline-block; }
+.email-contact-row { display: flex; flex-direction: column; gap: 1px; margin-bottom: 5px; }
+.contact-meta { font-size: 11px; color: var(--text-3); }
+.email-contact-grid { display: flex; flex-wrap: wrap; gap: 10px; }
+.email-contact-card {
+  background: var(--surface-h); border: 1px solid var(--border);
+  border-radius: 8px; padding: 10px 14px;
+  display: flex; flex-direction: column; gap: 3px; min-width: 200px;
+}
 
 /* Pagination */
 .pagination { display: flex; gap: 8px; justify-content: center; padding-top: 16px; }

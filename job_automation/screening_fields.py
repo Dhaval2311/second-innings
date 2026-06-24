@@ -37,6 +37,11 @@ def is_notice_question(q: str) -> bool:
     return "notice" in question_context(q)
 
 
+def is_veteran_question(q: str) -> bool:
+    ql = question_context(q)
+    return any(k in ql for k in ["veteran", "military", "armed forces", "protected veteran"])
+
+
 def is_choice_question(q: str) -> bool:
     ql = question_context(q)
     return any(
@@ -67,6 +72,8 @@ def is_choice_question(q: str) -> bool:
 def profile_value_for_question(q: str, profile: dict) -> str | None:
     """Map a question/context string to the correct profile value — never mix CTC with years."""
     ql = question_context(q)
+    if is_veteran_question(q):
+        return str(profile.get("is_veteran", "No"))
     if is_current_ctc_question(q):
         return str(profile.get("current_ctc_lpa", ""))
     if is_expected_ctc_question(q):

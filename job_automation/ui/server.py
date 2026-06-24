@@ -30,15 +30,18 @@ app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 _config: dict[str, Any] = {}
 _base_dir: Path = Path(".")
 _db = None  # JobRepository instance
+_ai = None  # AIClient — shared so _primary_rate_limited persists across requests
 
 
 def init_server(config: dict[str, Any], base_dir: Path) -> None:
-    global _config, _base_dir, _db
+    global _config, _base_dir, _db, _ai
     _config = config
     _base_dir = base_dir
     from ..config import resolve_db_path
     from ..db import get_repo
+    from ..content.ai_client import AIClient
     _db = get_repo(resolve_db_path(config, base_dir))
+    _ai = AIClient(config)
 
 
 # ---------------------------------------------------------------------------
@@ -211,31 +214,31 @@ class ContentRequest(BaseModel):
 
 @app.post("/api/content/cover-letter")
 async def gen_cover_letter(body: ContentRequest):
-    from ..content.ai_client import AIClient
+    if _ai is None:
+        raise HTTPException(503, "Server not initialised")
     from ..content.cover_letter import generate_cover_letter
     from ..models import Job
-    ai = AIClient(_config)
     job = Job(source="", company=body.company, role=body.role, source_url="",
                jd_text=body.jd_text or "")
     profile = _config.get("profile", {})
-    text = await generate_cover_letter(job, profile, ai)
-    if body.job_url:
+    text = await generate_cover_letter(job, profile, _ai)
+    if body.job_url and _db is not None:
         _db.save_content_draft(body.job_url, "cover_letter", text)
     return {"content": text}
 
 
 @app.post("/api/content/cold-email")
 async def gen_cold_email(body: ContentRequest):
-    from ..content.ai_client import AIClient
+    if _ai is None:
+        raise HTTPException(503, "Server not initialised")
     from ..content.cold_email import generate_cold_email
-    ai = AIClient(_config)
     profile = _config.get("profile", {})
     result = await generate_cold_email(
-        body.company, body.role, profile, ai,
+        body.company, body.role, profile, _ai,
         hiring_manager=body.hiring_manager or "",
         jd_text=body.jd_text or "",
     )
-    if body.job_url:
+    if body.job_url and _db is not None:
         _db.save_content_draft(body.job_url, "cold_email",
                                f"Subject: {result['subject']}\n\n{result['body']}")
     return result
@@ -243,39 +246,198 @@ async def gen_cold_email(body: ContentRequest):
 
 @app.post("/api/content/linkedin-dm")
 async def gen_linkedin_dm(body: ContentRequest):
-    from ..content.ai_client import AIClient
+    if _ai is None:
+        raise HTTPException(503, "Server not initialised")
     from ..content.linkedin_dm import generate_linkedin_dm
-    ai = AIClient(_config)
     profile = _config.get("profile", {})
     text = await generate_linkedin_dm(
-        body.company, body.role, profile, ai,
+        body.company, body.role, profile, _ai,
         target_name=body.target_name or "",
         profile_url=body.profile_url or "",
     )
-    if body.job_url:
+    if body.job_url and _db is not None:
         _db.save_content_draft(body.job_url, "linkedin_dm", text)
     return {"content": text}
+
+
+# ---------------------------------------------------------------------------
+# API — Contact / email guessing (Hunter.io + local pattern fallback)
+# ---------------------------------------------------------------------------
+
+HUNTER_API_URL = "https://api.hunter.io/v2/email-finder"
+# Minimum Hunter confidence score (0-100) to trust the result over pattern guessing
+_HUNTER_MIN_SCORE = 40
+
+
+def _pattern_candidates(first: str, last: str, domain: str) -> list[str]:
+    fi = first[0]
+    return [
+        f"{first}.{last}@{domain}",
+        f"{fi}{last}@{domain}",
+        f"{first}{last}@{domain}",
+        f"{first}_{last}@{domain}",
+        f"{fi}.{last}@{domain}",
+        f"{last}.{first}@{domain}",
+        f"{first}@{domain}",
+    ]
+
+
+async def _hunter_find_email(
+    first: str, last: str, domain: str, api_key: str
+) -> dict[str, Any]:
+    """
+    Call Hunter.io email-finder. Returns dict with 'email', 'score', 'sources'.
+    Raises on HTTP error; returns empty dict if not found.
+    """
+    import httpx
+    params = {
+        "domain": domain,
+        "first_name": first,
+        "last_name": last,
+        "api_key": api_key,
+    }
+    async with httpx.AsyncClient(timeout=10) as client:
+        resp = await client.get(HUNTER_API_URL, params=params)
+        resp.raise_for_status()
+        data = resp.json().get("data") or {}
+        return data
+
+
+class ContactRequest(BaseModel):
+    full_name: str          # e.g. "Priya Sharma"
+    company_domain: str     # e.g. "acme.com"
+    job_url: Optional[str] = ""
+
+
+@app.post("/api/contact/guess-email")
+async def guess_contact_email(body: ContactRequest):
+    """
+    Find the most likely email for a person at a company.
+    Tries Hunter.io first (if api key is configured); falls back to pattern guessing.
+    Response includes the best guess, confidence, source, and a pattern fallback list.
+    """
+    name = body.full_name.strip()
+    domain = body.company_domain.strip().lower().lstrip("@")
+    if not name or not domain:
+        raise HTTPException(400, "full_name and company_domain are required")
+
+    parts = name.lower().split()
+    if len(parts) < 2:
+        raise HTTPException(400, "full_name must include at least first and last name")
+
+    first, last = parts[0], parts[-1]
+    patterns = _pattern_candidates(first, last, domain)
+
+    hunter_key: str = (_config.get("contact", {}) or {}).get("hunter_api_key", "")
+    hunter_result: dict[str, Any] = {}
+
+    if hunter_key:
+        try:
+            hunter_result = await _hunter_find_email(first, last, domain, hunter_key)
+        except Exception as exc:
+            print(f"[hunter] error: {exc}")
+
+    hunter_email: str = hunter_result.get("email", "") or ""
+    hunter_score: int = int(hunter_result.get("score") or 0)
+    hunter_sources: list = hunter_result.get("sources") or []
+
+    if hunter_email and hunter_score >= _HUNTER_MIN_SCORE:
+        most_likely = hunter_email
+        source = "hunter"
+        confidence = hunter_score
+        # Put Hunter's result first in patterns list (deduplicated)
+        patterns = [hunter_email] + [p for p in patterns if p != hunter_email]
+    else:
+        most_likely = patterns[0]
+        source = "pattern"
+        confidence = None
+
+    if body.job_url and _db is not None:
+        _db.set_contact(
+            body.job_url,
+            name=body.full_name,
+            email=most_likely,
+        )
+
+    return {
+        "most_likely": most_likely,
+        "source": source,
+        "confidence": confidence,
+        "hunter_sources": hunter_sources,
+        "candidates": patterns,
+    }
+
+
+_GENERIC_PREFIXES = ["careers", "hr", "hiring", "talent", "recruit", "jobs", "hello", "info"]
+
+HUNTER_DOMAIN_URL = "https://api.hunter.io/v2/domain-search"
+
+
+class DomainSearchRequest(BaseModel):
+    company_domain: str     # e.g. "reddit.com"
+    job_url: Optional[str] = ""
+
+
+@app.post("/api/contact/domain-search")
+async def domain_search(body: DomainSearchRequest):
+    """
+    Find contacts at a company by domain — no name needed.
+    Uses Hunter.io domain-search if key is configured (returns real names + emails + titles).
+    Falls back to generic company contact patterns (careers@, hr@, etc.).
+    """
+    import httpx
+    domain = body.company_domain.strip().lower().lstrip("@")
+    if not domain or "." not in domain:
+        raise HTTPException(400, "company_domain must be a valid domain e.g. 'reddit.com'")
+
+    hunter_key: str = (_config.get("contact", {}) or {}).get("hunter_api_key", "")
+    contacts: list[dict] = []
+
+    if hunter_key:
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                resp = await client.get(
+                    HUNTER_DOMAIN_URL,
+                    params={"domain": domain, "api_key": hunter_key, "limit": 10},
+                )
+                resp.raise_for_status()
+                data = resp.json().get("data") or {}
+                for e in (data.get("emails") or []):
+                    contacts.append({
+                        "email": e.get("value", ""),
+                        "name": f"{e.get('first_name', '')} {e.get('last_name', '')}".strip(),
+                        "title": e.get("position", ""),
+                        "confidence": e.get("confidence", 0),
+                        "source": "hunter",
+                    })
+        except Exception as exc:
+            print(f"[hunter] domain-search error: {exc}")
+
+    if contacts:
+        if body.job_url and _db is not None:
+            top = contacts[0]
+            _db.set_contact(body.job_url, name=top["name"], email=top["email"])
+        return {"contacts": contacts, "source": "hunter", "domain": domain}
+
+    # Fallback: generic company contact emails
+    generic = [{"email": f"{p}@{domain}", "name": "", "title": p.title(), "confidence": None, "source": "generic"}
+               for p in _GENERIC_PREFIXES]
+    return {"contacts": generic, "source": "generic", "domain": domain}
 
 
 # ---------------------------------------------------------------------------
 # API — Settings (live config read/write)
 # ---------------------------------------------------------------------------
 
-_config_path: Optional[Path] = None
-
-
 def _get_config_path() -> Path:
-    if _config_path:
-        return _config_path
-    # Walk up from base_dir to find config.yaml
     for candidate in [_base_dir / "config.yaml", Path("config.yaml")]:
         if candidate.exists():
             return candidate
     raise FileNotFoundError("config.yaml not found")
 
 
-ALL_SCRAPER_SITES = ["linkedin", "naukri", "indeed", "hirist", "wellfound", "cutshort"]
-ALL_APPLIER_SITES = ["LinkedIn", "Naukri", "Indeed", "Hirist", "Wellfound", "Cutshort"]
+ALL_SCRAPER_SITES = ["linkedin", "naukri", "indeed", "hirist"]
+ALL_APPLIER_SITES = ["LinkedIn", "Naukri", "Indeed", "Hirist"]
 
 
 @app.get("/api/settings")
@@ -289,6 +451,7 @@ async def get_settings():
         return {
             "profile": raw.get("profile", {}),
             "ai": raw.get("ai", {}),
+            "contact": raw.get("contact", {}),
             "scraper": {
                 "max_jobs_per_search": scraper_cfg.get("max_jobs_per_search", 15),
                 "fresh_only_days": scraper_cfg.get("fresh_only_days", 7),
@@ -306,7 +469,7 @@ async def get_settings():
 
 
 class SettingsSave(BaseModel):
-    section: str  # "profile", "ai", "scraper", "scoring", "applier"
+    section: str  # "profile", "ai", "scraper", "scoring", "applier", "contact"
     data: dict[str, Any]
 
 
@@ -316,7 +479,7 @@ async def save_settings(body: SettingsSave):
         cfg_path = _get_config_path()
         raw = yaml.safe_load(cfg_path.read_text(encoding="utf-8")) or {}
 
-        allowed = {"profile", "ai", "scraper", "scoring", "applier"}
+        allowed = {"profile", "ai", "scraper", "scoring", "applier", "contact"}
         if body.section not in allowed:
             raise HTTPException(400, f"Section '{body.section}' is not editable via UI")
 

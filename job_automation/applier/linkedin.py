@@ -68,6 +68,48 @@ class LinkedInApplier(BaseApplier):
                 continue
         return False
 
+    async def _click_company_apply(self, page: Page) -> bool:
+        for sel in ["button:has-text('Apply')", "a:has-text('Apply')"]:
+            loc = page.locator(sel).first
+            try:
+                if await loc.count() and await loc.is_visible():
+                    blob = await self._apply_control_text(loc)
+                    if "easy apply" in blob:
+                        continue
+                    await loc.click(timeout=8000)
+                    return True
+            except Exception:
+                continue
+        return False
+
+    async def _resolve_company_apply_url(self, page: Page) -> str:
+        """Click the (non-Easy-Apply) Apply control and capture the resulting
+        external URL, without leaving the job page in a navigated-away state."""
+        pages_before = {id(p) for p in page.context.pages}
+        if not await self._click_company_apply(page):
+            return ""
+        await page.wait_for_timeout(2000)
+
+        new_pages = [p for p in page.context.pages if id(p) not in pages_before and p != page]
+        for extra in new_pages:
+            if LINKEDIN_HOST not in extra.url:
+                url = extra.url
+                try:
+                    await extra.close()
+                except Exception:
+                    pass
+                return url
+
+        if LINKEDIN_HOST not in page.url:
+            external = page.url
+            try:
+                await page.go_back(wait_until="domcontentloaded", timeout=10000)
+            except Exception:
+                pass
+            return external
+
+        return ""
+
     async def _click_easy_apply(self, page: Page) -> bool:
         selectors = [
             "button.jobs-apply-button:has-text('Easy Apply')",
@@ -225,9 +267,14 @@ class LinkedInApplier(BaseApplier):
             return ApplyResult(True, "Already applied", already_applied=True, tracker_status="applied")
 
         if await self._has_company_apply_only(page):
+            external_url = await self._resolve_company_apply_url(page)
+            if external_url:
+                db = self._get_db()
+                if db:
+                    db.set_external_url(job.source_url, external_url)
             return ApplyResult(
                 False,
-                "Company site apply only — deferred for manual apply",
+                f"Company site apply only ({external_url or 'url unresolved'}) — deferred for manual apply",
                 pending_external=True,
                 tracker_status="pending_external",
             )
@@ -245,21 +292,29 @@ class LinkedInApplier(BaseApplier):
         new_pages = [p for p in page.context.pages if id(p) not in pages_before and p != page]
         for extra in new_pages:
             if LINKEDIN_HOST not in extra.url:
+                external_url = extra.url
                 try:
                     await extra.close()
                 except Exception:
                     pass
+                db = self._get_db()
+                if db:
+                    db.set_external_url(job.source_url, external_url)
                 return ApplyResult(
                     False,
-                    f"Company site opened ({extra.url}) — deferred",
+                    f"Company site opened ({external_url}) — deferred",
                     pending_external=True,
                     tracker_status="pending_external",
                 )
 
         if LINKEDIN_HOST not in page.url:
+            external_url = page.url
+            db = self._get_db()
+            if db:
+                db.set_external_url(job.source_url, external_url)
             return ApplyResult(
                 False,
-                f"Redirected off LinkedIn ({page.url}) — deferred",
+                f"Redirected off LinkedIn ({external_url}) — deferred",
                 pending_external=True,
                 tracker_status="pending_external",
             )

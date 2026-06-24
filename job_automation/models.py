@@ -57,6 +57,10 @@ class Job:
     jd_text: str = ""           # full job description text (from enrich step)
     duplicate_of: str = ""      # source_url of canonical job if cross-source dup
     cover_letter: str = ""      # generated cover letter
+    external_url: str = ""          # resolved company-site/ATS apply URL, if redirected externally
+    contact_name: str = ""          # discovered hiring-manager/recruiter name
+    contact_email: str = ""         # guessed/discovered contact email
+    contact_profile_url: str = ""   # discovered LinkedIn profile URL of the contact
 
     def to_row(self) -> dict[str, str]:
         return {

@@ -95,7 +95,7 @@ async def generate_cold_email(
 
     Returns a dict with two keys:
       'subject' — specific, skill-forward subject line (≤ 10 words)
-      'body'    — email body, max 180 words, structured as:
+      'body'    — email body, max 150 words, structured as:
                   greeting → 1 intro sentence → 1-2 experience sentences → CTA
 
     Parameters
@@ -148,14 +148,15 @@ async def generate_cold_email(
         f"{jd_block}\n"
         "Instructions:\n"
         f"- {greeting_instruction}\n"
-        "- Subject line: specific, mention key skills + company, max 10 words, "
-        "e.g. 'Data Engineer with 7 yrs Spark/PySpark — Acme Corp'\n"
-        "- Body max 180 words total.\n"
-        "- Body structure: 1 intro sentence saying who they are + why reaching out, "
-        "1-2 sentences on relevant experience with concrete skills, "
-        "1 clear CTA sentence (suggest a 20-min call).\n"
-        "- Include email and LinkedIn at sign-off if provided.\n"
-        "- Tone: direct, professional, not salesy. No buzzwords.\n\n"
+        f"- Subject line: specific, include actual skill names and years + '{company}', max 10 words. "
+        "Example: 'Backend Engineer — 6 yrs Go/Postgres — Acme Corp'\n"
+        "- Body max 150 words. Structure:\n"
+        f"  1. One sentence: who you are (name, years, top skills) and why you're reaching out to {company} specifically.\n"
+        "  2. One sentence: the most relevant concrete experience for this role — use a real number or outcome.\n"
+        "  3. One sentence: CTA for a 20-min call. No 'I hope this email finds you well' or similar.\n"
+        "- Sign-off: include name, email, and LinkedIn if provided.\n"
+        "- Tone: direct, peer-to-peer, zero sales language. No 'synergy', 'passionate', 'leverage'.\n"
+        "- Do NOT start body with 'I am writing to'.\n\n"
         "Output:"
     )
 

@@ -18,18 +18,6 @@ from .indeed import IndeedApplier
 from .linkedin import LinkedInApplier
 from .naukri import NaukriApplier
 
-# Optional appliers
-try:
-    from .wellfound import WellfoundApplier
-    _HAS_WELLFOUND = True
-except ImportError:
-    _HAS_WELLFOUND = False
-
-try:
-    from .cutshort import CutshortApplier
-    _HAS_CUTSHORT = True
-except ImportError:
-    _HAS_CUTSHORT = False
 
 SKIP_STATUSES = {
     "applied",
@@ -53,10 +41,6 @@ def pick_applier(job: Job, config: dict[str, Any]) -> BaseApplier:
         return IndeedApplier(config)
     if "hirist.tech" in host or source == "hirist":
         return HiristApplier(config)
-    if _HAS_WELLFOUND and ("wellfound.com" in host or source == "wellfound"):
-        return WellfoundApplier(config)
-    if _HAS_CUTSHORT and ("cutshort.io" in host or source == "cutshort"):
-        return CutshortApplier(config)
     return GenericApplier(config)
 
 
@@ -158,8 +142,7 @@ async def run_applier(
 
     host_map = {
         "linkedin": ["linkedin.com"], "hirist": ["hirist.tech"],
-        "naukri": ["naukri.com"],     "indeed": ["indeed."],
-        "wellfound": ["wellfound.com"], "cutshort": ["cutshort.io"],
+        "naukri":   ["naukri.com"],   "indeed": ["indeed."],
     }
     prefer_hosts: list[str] = []
     for src in sources:

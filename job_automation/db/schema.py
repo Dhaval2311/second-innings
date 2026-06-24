@@ -31,6 +31,10 @@ CREATE TABLE IF NOT EXISTS jobs (
     next_action  TEXT    DEFAULT '',
     applied_date TEXT    DEFAULT '',
     search_label TEXT    DEFAULT '',
+    external_url        TEXT DEFAULT '',
+    contact_name        TEXT DEFAULT '',
+    contact_email       TEXT DEFAULT '',
+    contact_profile_url TEXT DEFAULT '',
     scraped_at   TEXT    DEFAULT (strftime('%Y-%m-%d %H:%M:%S','now')),
     updated_at   TEXT    DEFAULT (strftime('%Y-%m-%d %H:%M:%S','now'))
 );

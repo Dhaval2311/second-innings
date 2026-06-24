@@ -25,19 +25,6 @@ BROWSER_SCRAPERS: dict[str, type] = {
     "hirist":    HiristScraper,
 }
 
-# Try to import optional browser scrapers
-try:
-    from .wellfound import WellfoundScraper
-    BROWSER_SCRAPERS["wellfound"] = WellfoundScraper
-except ImportError:
-    pass
-
-try:
-    from .cutshort import CutshortScraper
-    BROWSER_SCRAPERS["cutshort"] = CutshortScraper
-except ImportError:
-    pass
-
 async def run_scraper(
     config: dict[str, Any],
     base_dir: Path,
@@ -72,12 +59,10 @@ async def run_scraper(
     if browser_selected:
         prefer_hosts = []
         host_map = {
-            "linkedin":  ["linkedin.com"],
-            "hirist":    ["hirist.tech"],
-            "naukri":    ["naukri.com"],
-            "indeed":    ["indeed."],
-            "wellfound": ["wellfound.com"],
-            "cutshort":  ["cutshort.io"],
+            "linkedin": ["linkedin.com"],
+            "hirist":   ["hirist.tech"],
+            "naukri":   ["naukri.com"],
+            "indeed":   ["indeed."],
         }
         for src in browser_selected:
             prefer_hosts.extend(host_map.get(src, []))

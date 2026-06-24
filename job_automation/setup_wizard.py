@@ -7,7 +7,7 @@ from pathlib import Path
 import yaml
 
 
-SITES = ["naukri", "linkedin", "hirist", "indeed", "wellfound", "cutshort"]
+SITES = ["naukri", "linkedin", "hirist", "indeed"]
 
 AI_PROVIDERS = {
     "1": ("gemini_free", "Gemini 1.5 Flash (Free) — https://aistudio.google.com/app/apikey"),
@@ -159,6 +159,7 @@ def run_setup(config_path: Path) -> None:
             "comfortable_remote": "Yes",
             "earliest_start": "Immediately",
             "english_proficiency": "Yes",
+            "is_veteran": "No",
             "default_screening_answer": str(years_exp),
             "skill_years": skill_years,
             "linkedin_url": "",

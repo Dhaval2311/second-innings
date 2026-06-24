@@ -292,30 +292,85 @@ function renderPagination(page, count) {
 async function loadCompanyQueue() {
   const tbody = document.getElementById('company-tbody');
   if (!tbody) return;
-  tbody.innerHTML = '<tr class="loading-row"><td colspan="7"><div class="spinner"></div></td></tr>';
+  tbody.innerHTML = '<tr class="loading-row"><td colspan="8"><div class="spinner"></div></td></tr>';
   try {
     const jobs = await api('/api/jobs?apply_type=company_site&limit=200');
     if (!jobs.length) {
-      tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text-3)">
+      tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--text-3)">
         No company-site jobs yet. Run a scrape to find some!</td></tr>`;
       return;
     }
-    tbody.innerHTML = jobs.map(j => `
+    tbody.innerHTML = jobs.map(j => {
+      let applyHostname = '';
+      try { applyHostname = j.external_url ? new URL(j.external_url).hostname.replace('www.', '') : ''; } catch (_) {}
+      const applyUrl = j.external_url
+        ? `<a href="${escapeHtml(j.external_url)}" target="_blank" class="ext-link" title="${escapeHtml(j.external_url)}">${escapeHtml(applyHostname || j.external_url)}</a>`
+        : `<a href="${j.source_url}" target="_blank" class="ext-link dim">LinkedIn →</a>`;
+
+      return `
       <tr>
         <td><span class="score-val ${scoreClass(j.score)}">${j.score}</span></td>
         <td><strong>${escapeHtml(j.company)}</strong></td>
         <td class="link-cell"><a href="${j.source_url}" target="_blank">${escapeHtml(j.role)}</a></td>
         <td>${j.source}</td>
         <td>${escapeHtml(j.location || '—')}</td>
+        <td>${applyUrl}</td>
         <td>${statusBadge(j.status)}</td>
         <td>
-          <a href="${j.source_url}" target="_blank"><button class="tbl-btn">Open & Apply</button></a>
+          <a href="${j.external_url || j.source_url}" target="_blank"><button class="tbl-btn">Open & Apply</button></a>
           ${j.status !== 'applied'
             ? `<button class="tbl-btn tbl-btn-green" onclick="markApplied('${encodeURIComponent(j.source_url)}')">Mark Applied</button>`
             : ''}
         </td>
-      </tr>`).join('');
+      </tr>`;
+    }).join('');
   } catch (_) {}
+}
+
+async function findCompanyEmails() {
+  const domain = document.getElementById('ce-domain')?.value?.trim();
+  if (!domain) { toast('Enter a company domain e.g. reddit.com', 'error'); return; }
+
+  const status = document.getElementById('ce-status');
+  const results = document.getElementById('ce-results');
+  if (status) status.textContent = 'Searching…';
+  if (results) results.style.display = 'none';
+
+  try {
+    const res = await api('/api/contact/domain-search', {
+      method: 'POST',
+      body: JSON.stringify({ company_domain: domain }),
+    });
+
+    if (status) status.textContent = '';
+    if (!results) return;
+
+    const sourceLabel = res.source === 'hunter'
+      ? `<span class="pill-verified">✓ Hunter.io — verified results</span>`
+      : `<span class="pill-pattern">Generic patterns — add Hunter.io key in Settings for real results</span>`;
+
+    results.innerHTML = `
+      <div style="margin-bottom:10px">${sourceLabel}</div>
+      <div class="email-contact-grid">
+        ${res.contacts.map(c => `
+          <div class="email-contact-card">
+            <span class="contact-email" onclick="copyText('${escapeHtml(c.email)}',this)" title="Click to copy">${escapeHtml(c.email)}</span>
+            ${c.name  ? `<span class="contact-meta">${escapeHtml(c.name)}</span>` : ''}
+            ${c.title ? `<span class="contact-meta">${escapeHtml(c.title)}</span>` : ''}
+          </div>`).join('')}
+      </div>`;
+    results.style.display = 'block';
+  } catch (_) {
+    if (status) status.textContent = 'Lookup failed';
+  }
+}
+
+function copyText(text, el) {
+  navigator.clipboard?.writeText(text).then(() => {
+    const orig = el.textContent;
+    el.textContent = 'Copied!';
+    setTimeout(() => { el.textContent = orig; }, 1200);
+  });
 }
 
 // ── Scrape history ────────────────────────────────────
@@ -565,6 +620,8 @@ async function loadSettings() {
     _setVal('s-comfortable_onsite', p.comfortable_onsite);
     _setVal('s-comfortable_remote', p.comfortable_remote);
     _setVal('s-earliest_start',     p.earliest_start);
+    _setVal('s-is_veteran',         p.is_veteran ?? 'No');
+    _setVal('s-linkedin_url',       p.linkedin_url);
     _setVal('s-resume_path',        p.resume_path);
     // preferred_locations is a list in config, show as comma-separated string
     const locs = p.preferred_locations;
@@ -618,6 +675,8 @@ async function saveSettings(section) {
       comfortable_onsite: document.getElementById('s-comfortable_onsite')?.value,
       comfortable_remote: document.getElementById('s-comfortable_remote')?.value,
       earliest_start:     document.getElementById('s-earliest_start')?.value,
+      is_veteran:         document.getElementById('s-is_veteran')?.value,
+      linkedin_url:       document.getElementById('s-linkedin_url')?.value,
       resume_path:        document.getElementById('s-resume_path')?.value,
       // split comma-separated locations back to a list
       preferred_locations: (document.getElementById('s-preferred_locations')?.value || '')

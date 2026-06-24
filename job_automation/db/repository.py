@@ -23,10 +23,26 @@ class JobRepository:
     # Internal helpers
     # ------------------------------------------------------------------
 
+    # Columns added after the original schema shipped — applied via ALTER TABLE
+    # to existing DBs, since CREATE TABLE IF NOT EXISTS won't add them.
+    _JOBS_NEW_COLUMNS = {
+        "external_url": "TEXT DEFAULT ''",
+        "contact_name": "TEXT DEFAULT ''",
+        "contact_email": "TEXT DEFAULT ''",
+        "contact_profile_url": "TEXT DEFAULT ''",
+    }
+
     def _init_db(self) -> None:
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         with self._conn() as conn:
             conn.executescript(SCHEMA_SQL)
+            self._migrate(conn)
+
+    def _migrate(self, conn: sqlite3.Connection) -> None:
+        existing = {row["name"] for row in conn.execute("PRAGMA table_info(jobs)")}
+        for col, decl in self._JOBS_NEW_COLUMNS.items():
+            if col not in existing:
+                conn.execute(f"ALTER TABLE jobs ADD COLUMN {col} {decl}")
 
     @contextmanager
     def _conn(self) -> Generator[sqlite3.Connection, None, None]:
@@ -171,6 +187,25 @@ class JobRepository:
                    WHERE source_url=?""",
                 (status, applied_date, applied_date, new_notes,
                  next_action, next_action, now_str(), url),
+            )
+
+    def set_external_url(self, url: str, external_url: str) -> None:
+        """Persist the resolved external (company-site/ATS) apply URL for a job."""
+        with self._conn() as conn:
+            conn.execute(
+                "UPDATE jobs SET external_url=?, updated_at=? WHERE source_url=?",
+                (external_url, now_str(), url),
+            )
+
+    def set_contact(
+        self, url: str, name: str = "", email: str = "", profile_url: str = ""
+    ) -> None:
+        """Persist a discovered hiring-manager/recruiter contact for a job."""
+        with self._conn() as conn:
+            conn.execute(
+                """UPDATE jobs SET contact_name=?, contact_email=?, contact_profile_url=?,
+                   updated_at=? WHERE source_url=?""",
+                (name, email, profile_url, now_str(), url),
             )
 
     def get_job_id(self, url: str) -> Optional[int]:
@@ -465,6 +500,10 @@ class JobRepository:
             jd_text=d.get("jd_text", ""),
             duplicate_of=d.get("duplicate_of", ""),
             cover_letter=d.get("cover_letter", ""),
+            external_url=d.get("external_url", ""),
+            contact_name=d.get("contact_name", ""),
+            contact_email=d.get("contact_email", ""),
+            contact_profile_url=d.get("contact_profile_url", ""),
         )
 
 

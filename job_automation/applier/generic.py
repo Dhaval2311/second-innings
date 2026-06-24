@@ -11,7 +11,7 @@ MAX_GENERIC_STEPS = 6
 
 
 class GenericApplier(BaseApplier):
-    """Best-effort applier for Wellfound, Cutshort, and company career pages."""
+    """Best-effort applier for company career pages."""
 
     source_name = "Other"
 

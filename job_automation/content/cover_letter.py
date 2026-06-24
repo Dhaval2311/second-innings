@@ -38,7 +38,7 @@ def _template_cover_letter(job: "Job", profile: dict[str, Any]) -> str:
     location: str = profile.get("current_location", "")
     skills_line: str = _build_skills_sentence(profile)
     notice: Any = profile.get("notice_period_days", "")
-    notice_str: str = f"{notice} days" if notice else "immediate"
+    notice_str: str = "immediate" if not notice or str(notice).strip() in ("0", "") else f"{notice} days"
 
     # Pull a short excerpt of the JD for matching context
     jd_excerpt: str = (job.jd_text or "")[:300].strip()
@@ -108,7 +108,7 @@ async def generate_cover_letter(
     location: str = profile.get("current_location", "")
     skills_line: str = _build_skills_sentence(profile)
     notice: Any = profile.get("notice_period_days", "")
-    notice_str: str = f"{notice} days" if notice else "immediate"
+    notice_str: str = "immediate" if not notice or str(notice).strip() in ("0", "") else f"{notice} days"
 
     profile_block = (
         f"Name: {name}\n"
@@ -131,13 +131,16 @@ async def generate_cover_letter(
         f"{jd_block}\n"
         "Instructions:\n"
         "- Exactly 3 paragraphs, under 250 words total.\n"
-        "- DO NOT start with 'I am writing to express' or any generic opener.\n"
-        "- Paragraph 1: Hook — who the candidate is and why THIS role at THIS company.\n"
-        "- Paragraph 2: Specific skills/experience that map to the JD requirements. "
-        "Mention at least 2 concrete skills.\n"
-        "- Paragraph 3: Brief value proposition + availability + clear call-to-action.\n"
-        "- Tone: confident, specific, human — not corporate fluff.\n"
-        "- Do NOT include salutation or sign-off; body paragraphs only.\n\n"
+        "- DO NOT use these openers: 'I am writing to express', 'I hope this finds you', "
+        "'I am excited to apply', 'I am pleased to'. Start with the candidate's name or a "
+        "specific observation about the role.\n"
+        "- Paragraph 1: Who the candidate is + one specific reason THIS company/role is the right next step "
+        f"(reference something concrete about {job.company} or the {job.role} role — not generic praise).\n"
+        "- Paragraph 2: 2-3 specific skills/achievements from the profile that directly address the JD. "
+        "Use actual numbers or skill names from the profile, not vague claims.\n"
+        "- Paragraph 3: One sentence on value + availability + direct CTA.\n"
+        "- Tone: confident, first-person, direct. No buzzwords like 'leverage', 'synergy', 'passionate'.\n"
+        "- Body paragraphs only — no 'Dear Hiring Manager', no 'Sincerely'.\n\n"
         "Cover letter:"
     )
 
